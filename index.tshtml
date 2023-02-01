@@ -8,23 +8,130 @@
 </body>
 <script>
     const ctx = canvas.getContext("2d")
-    var currentPage: Page
-    var mainPage = new MainPage()
-    var gamePage = new GamePage()
+    var currentPage: IPage
 
     function resizeCanvas() {
         canvas.width = this.innerWidth
         canvas.height = this.innerHeight
     }
-    resizeCanvas()
 
-    interface UiElement {
+    enum TestType {
+        Hover,
+        Down,
+        Up
+    }
+
+    interface IElement {
         bounds: Array<Function>
         id: string
         render()
+        onhover()
+        onmousedown()
+        onmouseup()
     }
 
-    class Label implements UiElement {
+    interface IPage {
+        elements: Array<IElement>
+        hitTest(x: number, y: number, type: TestType): boolean
+        render()
+    }
+
+    interface Radius {
+        topLeft: number;
+        topRight: number;
+        bottomLeft: number;
+        bottomRight: number;
+    }
+
+    class Radius implements Radius {
+        constructor(tl: number, tr: (number | null) = null, bl: (number | null) = null, br: (number | null) = null) {
+            this.topLeft = tl
+            this.topRight = tr ?? tl
+            this.bottomLeft = bl ?? tl
+            this.bottomRight = br ?? tl
+        }
+    }
+
+    abstract class Page implements IPage {
+        elements = new Array<IElement>
+
+        elementUp(element: IElement) {}
+
+        elementDown(element: IElement) {}
+
+        elementHover(element: IElement) {}
+
+        hitTest(x: number, y: number, type: TestType) {
+            for (let i = this.elements.length - 1; i >= 0; i--) {
+                let element = this.elements[i]
+                if ((x > element.bounds[0]() && x < element.bounds[2]())
+                    && (y > element.bounds[1]() && y < element.bounds[3]())) {
+                    if (type == TestType.Hover) {
+                        element.onhover()
+                        this.elementHover(element)
+                    }
+                    else if (type == TestType.Up) {
+                        element.onmouseup()
+                        this.elementDown(element)
+
+                    }
+                    else if (type == TestType.Down) {
+                        element.onmousedown()
+                        this.elementUp(element)
+                    }
+                    return true
+                }
+            }
+            
+            return false
+        }
+
+        render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            for (let element of this.elements) {
+                element.render()
+            }
+        }
+    }
+
+    class RoundedRect implements IElement {
+        bounds: Array<Function> = []
+
+        constructor(public colour: string, public border: string, public radius: Radius, x: Function, y: Function,
+                    width: Function, height: Function, public id = "") {
+            this.bounds[0] = x
+            this.bounds[1] = y
+            this.bounds[2] = () => x() + width()
+            this.bounds[3] = () => y() + height()
+        }
+
+        onhover() {}
+        onmousedown() {}
+        onmouseup() {}
+
+        render() {
+            ctx.save()
+            ctx.strokeStyle = this.border
+            ctx.fillStyle = this.colour
+            ctx.beginPath()
+            ctx.moveTo(this.bounds[0]() + this.radius.topLeft, this.bounds[1]())
+            ctx.lineTo(this.bounds[2]() - this.radius.topRight, this.bounds[1]())
+            ctx.quadraticCurveTo(this.bounds[2](), this.bounds[1](), this.bounds[2](), this.bounds[1]() + this.radius.topRight)
+            ctx.lineTo(this.bounds[2](), this.bounds[3]() - this.radius.bottomRight)
+            ctx.quadraticCurveTo(this.bounds[2](), this.bounds[3](), this.bounds[2]() - this.radius.bottomRight, this.bounds[3]())
+            ctx.lineTo(this.bounds[0]() + this.radius.bottomLeft, this.bounds[3]())
+            ctx.quadraticCurveTo(this.bounds[0](), this.bounds[3](), this.bounds[0](), this.bounds[3]() - this.radius.bottomLeft)
+            ctx.lineTo(this.bounds[0](), this.bounds[1]() + this.radius.topLeft)
+            ctx.quadraticCurveTo(this.bounds[0](), this.bounds[1](), this.bounds[0]() + this.radius.topLeft, this.bounds[1]())
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+            ctx.restore()
+        }
+    }
+
+    class Label implements IElement {
         bounds: Array<Function> = []
 
         constructor(public text: string, public colour: string, public fontSize: number, x: Function, y: Function, public id = "") {
@@ -33,6 +140,10 @@
             this.bounds[2] = x
             this.bounds[3] = y
         }
+
+        onhover() {}
+        onmousedown() {}
+        onmouseup() {}
 
         render() {
             ctx.save()
@@ -43,10 +154,11 @@
         }
     }
 
-    class Button implements UiElement {
+    class Button implements IElement {
         bounds: Array<Function> = []
         width = 256
         height = 64
+        hovering = false
 
         constructor(public text: string, public colour: string, x: Function, y: Function, public id = "") {
             this.bounds[0] = x
@@ -54,6 +166,10 @@
             this.bounds[2] = () => x() + this.width
             this.bounds[3] = () => y() + this.height
         }
+
+        onhover() {}
+        onmousedown() {}
+        onmouseup() {}
 
         render() {
             ctx.save()
@@ -66,30 +182,28 @@
             ctx.fillStyle = "#000000"
             ctx.font = "32px serif"
             ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height / 2) + 16)
-            
+
+            // Draw hover
+
             ctx.restore()
         }
     }
 
-    interface Page {
-        elements: Array<UiElement>
-        hitTest(x: number, y: number): boolean
-        render()
-    }
-
-    class MainPage implements Page {
-        elements = new Array<UiElement>
+    class MainPage extends Page {
+        elements = new Array<IElement>
 
         constructor() {
+            super()
+            this.elements.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500))
             this.elements.push(new Label("FlatWorld", "#000000", 64, () => innerWidth / 2 - 152, () =>  innerHeight / 2 - 96))
-            this.elements.push(new Button("Play", "#eb4034", () => innerWidth / 2 - 128, () =>  innerHeight / 2 - 32, "playBtn"))
-            this.elements.push(new Button("Settings", "#eb4034", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 48, "settingsBtn"))
+            this.elements.push(new Button("Play", "lightgray", () => innerWidth / 2 - 128, () =>  innerHeight / 2 - 32, "playBtn"))
+            this.elements.push(new Button("Settings", "lightgray", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 48, "settingsBtn"))
         }
 
-        elementHit(element: UiElement) {
-            console.log(element.id)
+        elementUp(element: IElement) {
             switch (element.id) {
                 case "playBtn":
+                    console.log("Starting game")
                     currentPage = gamePage
                     currentPage.render()
                     break
@@ -98,45 +212,35 @@
             }
         }
 
-        hitTest(x: number, y: number) {
-            for (let element of this.elements) {
-                if ((x > element.bounds[0]() && x < element.bounds[2]())
-                    && (y > element.bounds[1]() && y < element.bounds[3]())) {
-                    this.elementHit(element)
-                    return true
-                }
-            }
+        elementDown(element: IElement) {
 
-            return false
         }
 
-        render() {
-            for (let element of this.elements) {
-                element.render()
-            }
+        elementHover(element: IElement) {
+
         }
     }
 
-    class GamePage implements Page {
-        elements = new Array<UiElement>
-
-        hitTest(x: number, y: number) {
-            return false;
-        }
-
-        render() {
-            
+    class GamePage extends Page {
+        constructor() {
+            super()
         }
     }
+
+    resizeCanvas()
+    
+    var mainPage = new MainPage()
+    var gamePage = new GamePage()
 
     currentPage = mainPage
-    currentPage.render()
+    currentPage.render() //MouseEvent.prototype.clientX 
 
     // We propogate the click from the UI (foreground) to background
-    function hitTest(event) {
-        if (!currentPage.hitTest(event.clientX, event.clientY)) {
+    function hitTest(event: any, type: TestType) {
+        if (!currentPage.hitTest(event.clientX || event.touches[0].clientX,
+            event.clientY || event.touches[0].clientY, type)) {
             //Handle game input
-
+            
         }
     }
 
@@ -144,8 +248,12 @@
         resizeCanvas()
         currentPage.render()
     })
-    
-    canvas.addEventListener("click", hitTest)
-    canvas.addEventListener("touchend", hitTest)
+
+    canvas.addEventListener("mousedown", (event) => hitTest(event, TestType.Down))
+    canvas.addEventListener("touchstart", (event) => hitTest(event, TestType.Down))
+    canvas.addEventListener("mousemove", (event) => hitTest(event, TestType.Hover))
+    canvas.addEventListener("touchmove", (event) => hitTest(event, TestType.Hover))
+    canvas.addEventListener("mouseup", (event) => hitTest(event, TestType.Down))
+    canvas.addEventListener("touchend", (event) => hitTest(event, TestType.Up))
 </script>
 </html>

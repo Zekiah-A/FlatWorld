@@ -14,7 +14,91 @@ function resizeCanvas() {
     canvas.width = this.innerWidth;
     canvas.height = this.innerHeight;
 }
-resizeCanvas();
+var TestType;
+(function (TestType) {
+    TestType[TestType["Hover"] = 0] = "Hover";
+    TestType[TestType["Down"] = 1] = "Down";
+    TestType[TestType["Up"] = 2] = "Up";
+})(TestType || (TestType = {}));
+class Radius {
+    constructor(tl, tr = null, bl = null, br = null) {
+        this.topLeft = tl;
+        this.topRight = tr !== null && tr !== void 0 ? tr : tl;
+        this.bottomLeft = bl !== null && bl !== void 0 ? bl : tl;
+        this.bottomRight = br !== null && br !== void 0 ? br : tl;
+    }
+}
+class Page {
+    constructor() {
+        this.elements = new Array;
+    }
+    elementUp(element) { }
+    elementDown(element) { }
+    elementHover(element) { }
+    hitTest(x, y, type) {
+        for (let i = this.elements.length - 1; i >= 0; i--) {
+            let element = this.elements[i];
+            if ((x > element.bounds[0]() && x < element.bounds[2]())
+                && (y > element.bounds[1]() && y < element.bounds[3]())) {
+                if (type == TestType.Hover) {
+                    element.onhover();
+                    this.elementHover(element);
+                }
+                else if (type == TestType.Up) {
+                    element.onmouseup();
+                    this.elementDown(element);
+                }
+                else if (type == TestType.Down) {
+                    element.onmousedown();
+                    this.elementUp(element);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let element of this.elements) {
+            element.render();
+        }
+    }
+}
+class RoundedRect {
+    constructor(colour, border, radius, x, y, width, height, id = "") {
+        this.colour = colour;
+        this.border = border;
+        this.radius = radius;
+        this.id = id;
+        this.bounds = [];
+        this.bounds[0] = x;
+        this.bounds[1] = y;
+        this.bounds[2] = () => x() + width();
+        this.bounds[3] = () => y() + height();
+    }
+    onhover() { }
+    onmousedown() { }
+    onmouseup() { }
+    render() {
+        ctx.save();
+        ctx.strokeStyle = this.border;
+        ctx.fillStyle = this.colour;
+        ctx.beginPath();
+        ctx.moveTo(this.bounds[0]() + this.radius.topLeft, this.bounds[1]());
+        ctx.lineTo(this.bounds[2]() - this.radius.topRight, this.bounds[1]());
+        ctx.quadraticCurveTo(this.bounds[2](), this.bounds[1](), this.bounds[2](), this.bounds[1]() + this.radius.topRight);
+        ctx.lineTo(this.bounds[2](), this.bounds[3]() - this.radius.bottomRight);
+        ctx.quadraticCurveTo(this.bounds[2](), this.bounds[3](), this.bounds[2]() - this.radius.bottomRight, this.bounds[3]());
+        ctx.lineTo(this.bounds[0]() + this.radius.bottomLeft, this.bounds[3]());
+        ctx.quadraticCurveTo(this.bounds[0](), this.bounds[3](), this.bounds[0](), this.bounds[3]() - this.radius.bottomLeft);
+        ctx.lineTo(this.bounds[0](), this.bounds[1]() + this.radius.topLeft);
+        ctx.quadraticCurveTo(this.bounds[0](), this.bounds[1](), this.bounds[0]() + this.radius.topLeft, this.bounds[1]());
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+}
 class Label {
     constructor(text, colour, fontSize, x, y, id = "") {
         this.text = text;
@@ -27,6 +111,9 @@ class Label {
         this.bounds[2] = x;
         this.bounds[3] = y;
     }
+    onhover() { }
+    onmousedown() { }
+    onmouseup() { }
     render() {
         ctx.save();
         ctx.fillStyle = this.colour;
@@ -43,11 +130,15 @@ class Button {
         this.bounds = [];
         this.width = 256;
         this.height = 64;
+        this.hovering = false;
         this.bounds[0] = x;
         this.bounds[1] = y;
         this.bounds[2] = () => x() + this.width;
         this.bounds[3] = () => y() + this.height;
     }
+    onhover() { }
+    onmousedown() { }
+    onmouseup() { }
     render() {
         ctx.save();
         // Draw button background
@@ -57,58 +148,48 @@ class Button {
         ctx.fillStyle = "#000000";
         ctx.font = "32px serif";
         ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height / 2) + 16);
+        // Draw hover
         ctx.restore();
     }
 }
-class MainPage {
+class MainPage extends Page {
     constructor() {
+        super();
         this.elements = new Array;
+        this.elements.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500));
         this.elements.push(new Label("FlatWorld", "#000000", 64, () => innerWidth / 2 - 152, () => innerHeight / 2 - 96));
-        this.elements.push(new Button("Play", "#eb4034", () => innerWidth / 2 - 128, () => innerHeight / 2 - 32, "playBtn"));
-        this.elements.push(new Button("Settings", "#eb4034", () => innerWidth / 2 - 128, () => innerHeight / 2 + 48, "settingsBtn"));
+        this.elements.push(new Button("Play", "lightgray", () => innerWidth / 2 - 128, () => innerHeight / 2 - 32, "playBtn"));
+        this.elements.push(new Button("Settings", "lightgray", () => innerWidth / 2 - 128, () => innerHeight / 2 + 48, "settingsBtn"));
     }
-    elementHit(element) {
-        console.log(element.id);
+    elementUp(element) {
         switch (element.id) {
             case "playBtn":
+                console.log("Starting game");
+                currentPage = gamePage;
+                currentPage.render();
                 break;
             case "settingsBtn":
                 break;
         }
     }
-    hitTest(x, y) {
-        for (let element of this.elements) {
-            if ((x > element.bounds[0]() && x < element.bounds[2]())
-                && (y > element.bounds[1]() && y < element.bounds[3]())) {
-                this.elementHit(element);
-                return true;
-            }
-        }
-        return false;
+    elementDown(element) {
     }
-    render() {
-        for (let element of this.elements) {
-            element.render();
-        }
+    elementHover(element) {
     }
 }
-class GamePage {
+class GamePage extends Page {
     constructor() {
-        this.elements = new Array;
-    }
-    hitTest(x, y) {
-        return false;
-    }
-    render() {
+        super();
     }
 }
-let mainPage = new MainPage();
-let gamePage = new GamePage();
+resizeCanvas();
+var mainPage = new MainPage();
+var gamePage = new GamePage();
 currentPage = mainPage;
-currentPage.render();
+currentPage.render(); //MouseEvent.prototype.clientX 
 // We propogate the click from the UI (foreground) to background
-function hitTest(event) {
-    if (!currentPage.hitTest(event.clientX, event.clientY)) {
+function hitTest(event, type) {
+    if (!currentPage.hitTest(event.clientX || event.touches[0].clientX, event.clientY || event.touches[0].clientY, type)) {
         //Handle game input
     }
 }
@@ -116,7 +197,11 @@ this.addEventListener("resize", () => {
     resizeCanvas();
     currentPage.render();
 });
-canvas.addEventListener("click", hitTest);
-canvas.addEventListener("touchend", hitTest);
+canvas.addEventListener("mousedown", (event) => hitTest(event, TestType.Down));
+canvas.addEventListener("touchstart", (event) => hitTest(event, TestType.Down));
+canvas.addEventListener("mousemove", (event) => hitTest(event, TestType.Hover));
+canvas.addEventListener("touchmove", (event) => hitTest(event, TestType.Hover));
+canvas.addEventListener("mouseup", (event) => hitTest(event, TestType.Down));
+canvas.addEventListener("touchend", (event) => hitTest(event, TestType.Up));
 </script>
 </html>
