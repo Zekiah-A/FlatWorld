@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <canvas id="canvas" style="background-color: lightgray;"></canvas>
+</body>
+<script>
+    const ctx = canvas.getContext("2d")
+    var currentPage: Page
+    var mainPage = new MainPage()
+    var gamePage = new GamePage()
+
+    function resizeCanvas() {
+        canvas.width = this.innerWidth
+        canvas.height = this.innerHeight
+    }
+    resizeCanvas()
+
+    interface UiElement {
+        bounds: Array<Function>
+        id: string
+        render()
+    }
+
+    class Label implements UiElement {
+        bounds: Array<Function> = []
+
+        constructor(public text: string, public colour: string, public fontSize: number, x: Function, y: Function, public id = "") {
+            this.bounds[0] = x
+            this.bounds[1] = y
+            this.bounds[2] = x
+            this.bounds[3] = y
+        }
+
+        render() {
+            ctx.save()
+            ctx.fillStyle = this.colour
+            ctx.font = this.fontSize + "px serif"
+            ctx.fillText(this.text, this.bounds[0](), this.bounds[1]())
+            ctx.restore()
+        }
+    }
+
+    class Button implements UiElement {
+        bounds: Array<Function> = []
+        width = 256
+        height = 64
+
+        constructor(public text: string, public colour: string, x: Function, y: Function, public id = "") {
+            this.bounds[0] = x
+            this.bounds[1] = y
+            this.bounds[2] = () => x() + this.width
+            this.bounds[3] = () => y() + this.height
+        }
+
+        render() {
+            ctx.save()
+
+            // Draw button background
+            ctx.fillStyle = this.colour
+            ctx.fillRect(this.bounds[0](), this.bounds[1](), this.width, this.height)
+            
+            // Draw button text
+            ctx.fillStyle = "#000000"
+            ctx.font = "32px serif"
+            ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height / 2) + 16)
+            
+            ctx.restore()
+        }
+    }
+
+    interface Page {
+        elements: Array<UiElement>
+        hitTest(x: number, y: number): boolean
+        render()
+    }
+
+    class MainPage implements Page {
+        elements = new Array<UiElement>
+
+        constructor() {
+            this.elements.push(new Label("FlatWorld", "#000000", 64, () => innerWidth / 2 - 152, () =>  innerHeight / 2 - 96))
+            this.elements.push(new Button("Play", "#eb4034", () => innerWidth / 2 - 128, () =>  innerHeight / 2 - 32, "playBtn"))
+            this.elements.push(new Button("Settings", "#eb4034", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 48, "settingsBtn"))
+        }
+
+        elementHit(element: UiElement) {
+            console.log(element.id)
+            switch (element.id) {
+                case "playBtn":
+                    currentPage = gamePage
+                    currentPage.render()
+                    break
+                case "settingsBtn":
+                    break
+            }
+        }
+
+        hitTest(x: number, y: number) {
+            for (let element of this.elements) {
+                if ((x > element.bounds[0]() && x < element.bounds[2]())
+                    && (y > element.bounds[1]() && y < element.bounds[3]())) {
+                    this.elementHit(element)
+                    return true
+                }
+            }
+
+            return false
+        }
+
+        render() {
+            for (let element of this.elements) {
+                element.render()
+            }
+        }
+    }
+
+    class GamePage implements Page {
+        elements = new Array<UiElement>
+
+        hitTest(x: number, y: number) {
+            return false;
+        }
+
+        render() {
+            
+        }
+    }
+
+    currentPage = mainPage
+    currentPage.render()
+
+    // We propogate the click from the UI (foreground) to background
+    function hitTest(event) {
+        if (!currentPage.hitTest(event.clientX, event.clientY)) {
+            //Handle game input
+
+        }
+    }
+
+    this.addEventListener("resize", () => {
+        resizeCanvas()
+        currentPage.render()
+    })
+    
+    canvas.addEventListener("click", hitTest)
+    canvas.addEventListener("touchend", hitTest)
+</script>
+</html>
