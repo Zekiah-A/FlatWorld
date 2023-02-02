@@ -29,6 +29,7 @@
         id: string
         render(): void
         onhover(): void
+        onleave(): void
         onmousedown(): void
         onmouseup(): void
     }
@@ -111,6 +112,7 @@
         }
 
         onhover() {}
+        onleave() {}
         onmousedown() {}
         onmouseup() {}
 
@@ -152,6 +154,7 @@
         }
 
         onhover() {}
+        onleave() {}
         onmousedown() {}
         onmouseup() {}
 
@@ -183,6 +186,10 @@
 
         onhover() {
             this.background.colour = this.hoverColour
+            this.render()
+        }
+        onleave() {
+            this.background.colour = this.normalColour
             this.render()
         }
         onmousedown() {
