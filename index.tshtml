@@ -27,16 +27,16 @@
     interface IElement {
         bounds: Array<Function>
         id: string
-        render()
-        onhover()
-        onmousedown()
-        onmouseup()
+        render(): void
+        onhover(): void
+        onmousedown(): void
+        onmouseup(): void
     }
 
     interface IPage {
         elements: Array<IElement>
         hitTest(x: number, y: number, type: TestType): boolean
-        render()
+        render(): void
     }
 
     interface Radius {
@@ -102,8 +102,8 @@
     class RoundedRect implements IElement {
         bounds: Array<Function> = []
 
-        constructor(public colour: string, public border: string, public radius: Radius, x: Function, y: Function,
-                    width: Function, height: Function, public id = "") {
+        constructor(public id = "", public colour: string, public border: string, public radius: Radius, x: Function, y: Function,
+                    width: Function, height: Function) {
             this.bounds[0] = x
             this.bounds[1] = y
             this.bounds[2] = () => x() + width()
@@ -138,7 +138,7 @@
     class Label implements IElement {
         bounds: Array<Function> = []
 
-        constructor(public text: string, public colour: string, public fontSize: number, x: Function, y: Function, public id = "") {
+        constructor(public id = "", public text: string, x: Function, y: Function, public fontSize: number = 64, public colour = "black") {
             this.bounds[0] = x
             this.bounds[1] = y
             this.bounds[2] = () => {
@@ -166,34 +166,44 @@
 
     class Button implements IElement {
         bounds: Array<Function> = []
-        width = 256
-        height = 64
+        background: RoundedRect
         hovering = false
+        colour = ""
 
-        constructor(public text: string, public colour: string, x: Function, y: Function, public id = "") {
+        constructor(public id = "", public text: string, x: Function, y: Function, public width = () => 256, public height = () => 64, public fontSize = 32,
+            public normalColour = "lightgray", public pressedColour = "darkgrey", public hoverColour = "gainsboro") {
+            this.colour = this.normalColour
             this.bounds[0] = x
             this.bounds[1] = y
-            this.bounds[2] = () => x() + this.width
-            this.bounds[3] = () => y() + this.height
+            this.bounds[2] = () => x() + this.width()
+            this.bounds[3] = () => y() + this.height()
+            this.background = new RoundedRect("", this.colour, "darkgray", new Radius(8),
+                this.bounds[0], this.bounds[1], () => this.width(), () => this.height())
         }
 
-        onhover() {}
-        onmousedown() {}
-        onmouseup() {}
+        onhover() {
+            this.background.colour = this.hoverColour
+            this.render()
+        }
+        onmousedown() {
+            this.background.colour = this.pressedColour
+            this.render()
+        }
+        onmouseup() {
+            this.background.colour = this.normalColour
+            this.render()
+        }
 
         render() {
             ctx.save()
 
             // Draw button background
-            ctx.fillStyle = this.colour
-            ctx.fillRect(this.bounds[0](), this.bounds[1](), this.width, this.height)
+            this.background.render()
             
             // Draw button text
             ctx.fillStyle = "#000000"
-            ctx.font = "32px serif"
-            ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height / 2) + 16)
-
-            // Draw hover
+            ctx.font = this.fontSize + "px serif"
+            ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height() / 2) + 16)
 
             ctx.restore()
         }
@@ -204,10 +214,10 @@
 
         constructor() {
             super()
-            this.elements.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500))
-            this.elements.push(new Label("FlatWorld", "#000000", 64, () => innerWidth / 2 - 152, () =>  innerHeight / 2 - 164))
-            this.elements.push(new Button("Play", "lightgray", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 50, "playBtn"))
-            this.elements.push(new Button("Settings", "lightgray", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 124, "settingsBtn"))
+            this.elements.push(new RoundedRect("", "#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500))
+            this.elements.push(new Label("", "FlatWorld", () => innerWidth / 2 - 152, () =>  innerHeight / 2 - 164))
+            this.elements.push(new Button("playBtn", "Play", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 50))
+            this.elements.push(new Button("settingsBtn", "Settings", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 124))
         }
 
         elementUp(element: IElement) {
@@ -230,7 +240,7 @@
 
         }
 
-        roundClip(x, y, width, height, radius) {
+        roundClip(x:number, y:number, width:number, height:number, radius:number) {
             ctx.beginPath()
             ctx.moveTo(x + radius, y)
             ctx.lineTo(x + width - radius, y)
@@ -264,7 +274,7 @@
     class GamePage extends Page {
         constructor() {
             super()
-            this.elements.push(new RoundedRect("#FFFFFF", "#808080", new Radius(0, 8, 0, 0), () => 0, () => innerHeight - 100, () => Math.min(innerWidth - 16, 400), () => 100))
+            this.elements.push(new RoundedRect("", "#FFFFFF", "#808080", new Radius(0, 8, 0, 0), () => 0, () => innerHeight - 100, () => Math.min(innerWidth - 16, 400), () => 100))
         }
     }
 

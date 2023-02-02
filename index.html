@@ -7,8 +7,7 @@
     <canvas id="canvas" style="background-color: lightgray;"></canvas>
 </body>
 <script>
-
-const ctx = canvas.getContext("2d");
+const ctx = (canvas.getContext("2d"));
 let x = 0;
 let y = 0;
 let zoom = 1;
@@ -69,11 +68,11 @@ class Page {
     }
 }
 class RoundedRect {
-    constructor(colour, border, radius, x, y, width, height, id = "") {
+    constructor(id = "", colour, border, radius, x, y, width, height) {
+        this.id = id;
         this.colour = colour;
         this.border = border;
         this.radius = radius;
-        this.id = id;
         this.bounds = [];
         this.bounds[0] = x;
         this.bounds[1] = y;
@@ -104,11 +103,11 @@ class RoundedRect {
     }
 }
 class Label {
-    constructor(text, colour, fontSize, x, y, id = "") {
-        this.text = text;
-        this.colour = colour;
-        this.fontSize = fontSize;
+    constructor(id = "", text, x, y, fontSize = 64, colour = "black") {
         this.id = id;
+        this.text = text;
+        this.fontSize = fontSize;
+        this.colour = colour;
         this.bounds = [];
         this.bounds[0] = x;
         this.bounds[1] = y;
@@ -119,7 +118,7 @@ class Label {
             ctx.restore();
             return wx;
         };
-        this.bounds[3] = () => y() + this.fontSize
+        this.bounds[3] = () => y() + this.fontSize;
     }
     onhover() { }
     onmousedown() { }
@@ -133,39 +132,45 @@ class Label {
     }
 }
 class Button {
-    constructor(text, colour, x, y, id = "") {
-        this.text = text;
-        this.colour = colour;
+    constructor(id = "", text, x, y, width = () => 256, height = () => 64, fontSize = 32, normalColour = "lightgray", pressedColour = "darkgrey", hoverColour = "gainsboro") {
         this.id = id;
+        this.text = text;
+        this.width = width;
+        this.height = height;
+        this.fontSize = fontSize;
+        this.normalColour = normalColour;
+        this.pressedColour = pressedColour;
+        this.hoverColour = hoverColour;
         this.bounds = [];
-        this.width = 256;
-        this.height = 64;
         this.hovering = false;
+        this.colour = "";
+        this.colour = this.normalColour;
         this.bounds[0] = x;
         this.bounds[1] = y;
-        this.bounds[2] = () => x() + this.width;
-        this.bounds[3] = () => y() + this.height;
+        this.bounds[2] = () => x() + this.width();
+        this.bounds[3] = () => y() + this.height();
+        this.background = new RoundedRect("", this.colour, "darkgray", new Radius(8), this.bounds[0], this.bounds[1], () => this.width(), () => this.height());
     }
-    onhover() { }
+    onhover() {
+        this.background.colour = this.hoverColour;
+        this.render();
+    }
     onmousedown() {
-	this.colour2 = this.colour
-	this.colour = "darkgrey"
-	this.render()
+        this.background.colour = this.pressedColour;
+        this.render();
     }
     onmouseup() {
-	this.colour = this.colour2
-	this.render()
+        this.background.colour = this.normalColour;
+        this.render();
     }
     render() {
         ctx.save();
         // Draw button background
-	let background = new RoundedRect(this.colour, "darkgray", new Radius(8), this.bounds[0], this.bounds[1], () => this.width, () => this.height)
-	background.render()
+        this.background.render();
         // Draw button text
         ctx.fillStyle = "#000000";
-        ctx.font = "32px serif";
-        ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height / 2) + 16);
-        // Draw hover
+        ctx.font = this.fontSize + "px serif";
+        ctx.fillText(this.text, this.bounds[0]() + 16, this.bounds[1]() + (this.height() / 2) + 16);
         ctx.restore();
     }
 }
@@ -173,10 +178,10 @@ class MainPage extends Page {
     constructor() {
         super();
         this.elements = new Array;
-        this.elements.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500));
-        this.elements.push(new Label("FlatWorld", "#000000", 64, () => innerWidth / 2 - 132, () => innerHeight / 2 - 164));
-        this.elements.push(new Button("Play", "lightgray", () => innerWidth / 2 - 128, () => innerHeight / 2 + 50, "playBtn"));
-        this.elements.push(new Button("Settings", "lightgray", () => innerWidth / 2 - 128, () => innerHeight / 2 + 124, "settingsBtn"));
+        this.elements.push(new RoundedRect("", "#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500));
+        this.elements.push(new Label("", "FlatWorld", () => innerWidth / 2 - 152, () => innerHeight / 2 - 164));
+        this.elements.push(new Button("playBtn", "Play", () => innerWidth / 2 - 128, () => innerHeight / 2 + 50));
+        this.elements.push(new Button("settingsBtn", "Settings", () => innerWidth / 2 - 128, () => innerHeight / 2 + 124));
     }
     elementUp(element) {
         switch (element.id) {
@@ -224,9 +229,10 @@ class MainPage extends Page {
 class GamePage extends Page {
     constructor() {
         super();
-        this.elements.push(new RoundedRect("#FFFFFF", "#808080", new Radius(0, 8, 0, 0), () => 0, () => innerHeight - 100, () => Math.min(innerWidth - 16, 400), () => 100));
+        this.elements.push(new RoundedRect("", "#FFFFFF", "#808080", new Radius(0, 8, 0, 0), () => 0, () => innerHeight - 100, () => Math.min(innerWidth - 16, 400), () => 100));
     }
 }
+// We propogate the input from the UI (foreground) to background
 function hitTest(event, type) {
     if (!currentPage.hitTest(event.clientX || event.touches[0].clientX, event.clientY || event.touches[0].clientY, type)) {
         //Handle game input
@@ -261,7 +267,6 @@ var gamePage = new GamePage();
 currentPage = mainPage;
 resizeCanvas();
 currentPage.render();
-// We propogate the click from the UI (foreground) to background
 this.addEventListener("resize", () => {
     resizeCanvas();
     currentPage.render();
