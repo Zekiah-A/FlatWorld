@@ -7,15 +7,15 @@
     <canvas id="canvas" style="background-color: lightgray;"></canvas>
 </body>
 <script type="">
-    const ctx = canvas.getContext("2d")
+    const ctx = canvas.getContext("2d")!
     let x = 0
     let y = 0
     let zoom = 1
     let currentPage: IPage
 
     function resizeCanvas() {
-        canvas.width = this.innerWidth
-        canvas.height = this.innerHeight
+        canvas.width = innerWidth
+        canvas.height = innerHeight
     }
 
     enum TestType {
@@ -28,6 +28,15 @@
         Pressed,
         Hover,
         Default    
+    }
+
+    enum Tiles {
+        Dirt,
+        Grass,
+        Rock,
+        Sand,
+        Brick,
+        Water
     }
 
     interface IControl {
@@ -101,20 +110,25 @@
                 return true
             }
             else if ((x > this.bounds[0]() && x < this.bounds[2]())
-                && (y > this.bounds[1]() && y < this.bounds[3]())) {
+                        && (y > this.bounds[1]() && y < this.bounds[3]())
+                        && this.state != State.Pressed) {
+                
                 if (type == TestType.Hover && this.state != State.Hover) {
                     this.state = State.Hover
                     this.onhover()
                 }
-                else if (type == TestType.Down && this.state != State.Pressed) {
+                else if (type == TestType.Down) {
                     this.state = State.Pressed
                     this.onmousedown()
                 }
 
                 return true
             }
-            else if (type == TestType.Hover && this.state == State.Hover) {
+            else if (type == TestType.Hover && this.state == State.Hover
+                    || this.state == State.Pressed) {
+                        
                 this.state = State.Default
+                this.render()
                 this.onleave()
                 return false
             }
@@ -182,7 +196,7 @@
 
     class Button extends Control {
         background: RoundedRect
-        colour = ""
+        colour: string
 
         constructor(public text: string, x: Function, y: Function, public width = () => 256, public height = () => 64, public fontSize = 32,
             public normalColour = "lightgray", public pressedColour = "darkgrey", public hoverColour = "gainsboro") {
@@ -206,23 +220,28 @@
                 return true
             }
             else if ((x > this.bounds[0]() && x < this.bounds[2]())
-                && (y > this.bounds[1]() && y < this.bounds[3]())) {
-                if (type == TestType.Hover && this.state != State.Hover) {
-                    this.state = State.Hover
-                    this.background.colour = this.hoverColour
-                    this.render()
-                    this.onhover()
-                }
-                else if (type == TestType.Down && this.state != State.Pressed) {
-                    this.state = State.Pressed
-                    this.background.colour = this.pressedColour
-                    this.render()
-                    this.onmousedown()
+                        && (y > this.bounds[1]() && y < this.bounds[3]())) {
+
+                if (this.state != State.Pressed) {
+                    if (type == TestType.Hover && this.state != State.Hover) {
+                        this.state = State.Hover
+                        this.background.colour = this.hoverColour
+                        this.render()
+                        this.onhover()
+                    }
+                    else if (type == TestType.Down) {
+                        this.state = State.Pressed
+                        this.background.colour = this.pressedColour
+                        this.render()
+                        this.onmousedown()
+                    }
                 }
 
                 return true
             }
-            else if (type == TestType.Hover && this.state == State.Hover) {
+            else if (type == TestType.Hover && this.state == State.Hover
+                    || this.state == State.Pressed) {
+                        
                 this.state = State.Default
                 this.background.colour = this.normalColour
                 this.render()
@@ -249,12 +268,31 @@
     }
 
     class MainPage extends Page {
+        gameIcon: HTMLImageElement
+
         constructor() {
             super()
             this.controls.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500))
             this.controls.push(new Label("FlatWorld", () => innerWidth / 2 - 152, () =>  innerHeight / 2 - 164))
-            this.controls.push(new Button("Play", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 50))
-            this.controls.push(new Button("Settings", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 124))
+
+            let playButton = new Button("Play", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 50)
+            playButton.onmouseup = function() {
+                currentPage = gamePage
+                currentPage.render()
+            }
+            this.controls.push(playButton)
+
+            let settingsButton = new Button("Settings", () => innerWidth / 2 - 128, () =>  innerHeight / 2 + 124)
+            settingsButton.onmouseup = function() {
+                //currentPage = settingsPage
+                currentPage.render()
+            }
+            this.controls.push(settingsButton)
+
+            this.gameIcon = new Image()
+            this.gameIcon.src = "icon.png"
+            this.gameIcon.addEventListener("load", () => this.render())
+
         }
 
         roundClip(x:number, y:number, width:number, height:number, radius:number) {
@@ -274,17 +312,13 @@
         render() {
             super.render()
 
-            const gameIcon = new Image()
-            gameIcon.src = "icon.png"
-            gameIcon.addEventListener("load", (_) => {
-                ctx.save()
-                let x = innerWidth / 2 - 128
-                let y = innerHeight / 2 - 142
-                this.roundClip(x, y, 256, 178, 8)
-                ctx.clip()
-                ctx.drawImage(gameIcon, x, y)
-                ctx.restore()
-            })
+            ctx.save()
+            let x = innerWidth / 2 - 128
+            let y = innerHeight / 2 - 142
+            this.roundClip(x, y, 256, 178, 8)
+            ctx.clip()
+            ctx.drawImage(this.gameIcon, x, y)
+            ctx.restore()
         }
     }
 
@@ -304,7 +338,9 @@
         }
     }
 
-    function render() {
+   let chunks = new Uint8Array([21, 31])
+
+    function render(): void {
         ctx.save()
 
         for (let x = 0; x < innerWidth; x += 50) {

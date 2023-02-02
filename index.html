@@ -14,8 +14,8 @@ let y = 0;
 let zoom = 1;
 let currentPage;
 function resizeCanvas() {
-    canvas.width = this.innerWidth;
-    canvas.height = this.innerHeight;
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
 }
 var TestType;
 (function (TestType) {
@@ -29,6 +29,15 @@ var State;
     State[State["Hover"] = 1] = "Hover";
     State[State["Default"] = 2] = "Default";
 })(State || (State = {}));
+var Tiles;
+(function (Tiles) {
+    Tiles[Tiles["Dirt"] = 0] = "Dirt";
+    Tiles[Tiles["Grass"] = 1] = "Grass";
+    Tiles[Tiles["Rock"] = 2] = "Rock";
+    Tiles[Tiles["Sand"] = 3] = "Sand";
+    Tiles[Tiles["Brick"] = 4] = "Brick";
+    Tiles[Tiles["Water"] = 5] = "Water";
+})(Tiles || (Tiles = {}));
 class Radius {
     constructor(tl, tr = null, bl = null, br = null) {
         this.topLeft = tl;
@@ -73,12 +82,13 @@ class Control {
             return true;
         }
         else if ((x > this.bounds[0]() && x < this.bounds[2]())
-            && (y > this.bounds[1]() && y < this.bounds[3]())) {
+            && (y > this.bounds[1]() && y < this.bounds[3]())
+            && this.state != State.Pressed) {
             if (type == TestType.Hover && this.state != State.Hover) {
                 this.state = State.Hover;
                 this.onhover();
             }
-            else if (type == TestType.Down && this.state != State.Pressed) {
+            else if (type == TestType.Down) {
                 this.state = State.Pressed;
                 this.onmousedown();
             }
@@ -159,7 +169,6 @@ class Button extends Control {
         this.normalColour = normalColour;
         this.pressedColour = pressedColour;
         this.hoverColour = hoverColour;
-        this.colour = "";
         this.colour = this.normalColour;
         this.bounds[0] = x;
         this.bounds[1] = y;
@@ -177,21 +186,30 @@ class Button extends Control {
         }
         else if ((x > this.bounds[0]() && x < this.bounds[2]())
             && (y > this.bounds[1]() && y < this.bounds[3]())) {
-            if (type == TestType.Hover && this.state != State.Hover) {
-                this.state = State.Hover;
-                this.background.colour = this.hoverColour;
-                this.render();
-                this.onhover();
-            }
-            else if (type == TestType.Down && this.state != State.Pressed) {
-                this.state = State.Pressed;
-                this.background.colour = this.pressedColour;
-                this.render();
-                this.onmousedown();
+            if (this.state != State.Pressed) {
+                if (type == TestType.Hover && this.state != State.Hover) {
+                    this.state = State.Hover;
+                    this.background.colour = this.hoverColour;
+                    this.render();
+                    this.onhover();
+                }
+                else if (type == TestType.Down) {
+                    this.state = State.Pressed;
+                    this.background.colour = this.pressedColour;
+                    this.render();
+                    this.onmousedown();
+                }
             }
             return true;
         }
         else if (type == TestType.Hover && this.state == State.Hover) {
+            this.state = State.Default;
+            this.background.colour = this.normalColour;
+            this.render();
+            this.onleave();
+            return false;
+        }
+        else if (type == TestType.Hover && this.state == State.Pressed) {
             this.state = State.Default;
             this.background.colour = this.normalColour;
             this.render();
@@ -216,8 +234,21 @@ class MainPage extends Page {
         super();
         this.controls.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500));
         this.controls.push(new Label("FlatWorld", () => innerWidth / 2 - 152, () => innerHeight / 2 - 164));
-        this.controls.push(new Button("Play", () => innerWidth / 2 - 128, () => innerHeight / 2 + 50));
-        this.controls.push(new Button("Settings", () => innerWidth / 2 - 128, () => innerHeight / 2 + 124));
+        let playButton = new Button("Play", () => innerWidth / 2 - 128, () => innerHeight / 2 + 50);
+        playButton.onmouseup = function () {
+            currentPage = gamePage;
+            currentPage.render();
+        };
+        this.controls.push(playButton);
+        let settingsButton = new Button("Settings", () => innerWidth / 2 - 128, () => innerHeight / 2 + 124);
+        settingsButton.onmouseup = function () {
+            //currentPage = settingsPage
+            currentPage.render();
+        };
+        this.controls.push(settingsButton);
+        this.gameIcon = new Image();
+        this.gameIcon.src = "icon.png";
+        this.gameIcon.addEventListener("load", () => this.render());
     }
     roundClip(x, y, width, height, radius) {
         ctx.beginPath();
@@ -234,17 +265,13 @@ class MainPage extends Page {
     }
     render() {
         super.render();
-        const gameIcon = new Image();
-        gameIcon.src = "icon.png";
-        gameIcon.addEventListener("load", (_) => {
-            ctx.save();
-            let x = innerWidth / 2 - 128;
-            let y = innerHeight / 2 - 142;
-            this.roundClip(x, y, 256, 178, 8);
-            ctx.clip();
-            ctx.drawImage(gameIcon, x, y);
-            ctx.restore();
-        });
+        ctx.save();
+        let x = innerWidth / 2 - 128;
+        let y = innerHeight / 2 - 142;
+        this.roundClip(x, y, 256, 178, 8);
+        ctx.clip();
+        ctx.drawImage(this.gameIcon, x, y);
+        ctx.restore();
     }
 }
 class GamePage extends Page {
@@ -259,6 +286,7 @@ function hitTest(event, type) {
         //Handle game input
     }
 }
+let chunks = new Uint8Array([21, 31]);
 function render() {
     ctx.save();
     for (let x = 0; x < innerWidth; x += 50) {
