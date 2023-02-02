@@ -6,7 +6,7 @@
 <body>
     <canvas id="canvas" style="background-color: lightgray;"></canvas>
 </body>
-<script>
+<script type="">
     const ctx = canvas.getContext("2d")
     let x = 0
     let y = 0
@@ -141,8 +141,20 @@
         constructor(public text: string, public colour: string, public fontSize: number, x: Function, y: Function, public id = "") {
             this.bounds[0] = x
             this.bounds[1] = y
-            this.bounds[2] = x
-            this.bounds[3] = y
+            this.bounds[2] = () => {
+                ctx.save()
+                ctx.font = this.fontSize + "px serif"
+                let wx = x() + ctx.measureText(this.text).width
+                ctx.restore()
+                return wx
+            }
+            this.bounds[3] = () => {
+                ctx.save()
+                ctx.font = this.fontSize + "px serif"
+                let hy = x() + ctx.measureText(this.text).height
+                ctx.restore()
+                return hy
+            }
         }
 
         onhover() {}
