@@ -6,8 +6,9 @@
 <body>
     <canvas id="canvas" style="background-color: lightgray;"></canvas>
 </body>
-<script>
-const ctx = (canvas.getContext("2d"));
+<script type="">
+
+const ctx = canvas.getContext("2d");
 let x = 0;
 let y = 0;
 let zoom = 1;
@@ -22,6 +23,12 @@ var TestType;
     TestType[TestType["Down"] = 1] = "Down";
     TestType[TestType["Up"] = 2] = "Up";
 })(TestType || (TestType = {}));
+var State;
+(function (State) {
+    State[State["Pressed"] = 0] = "Pressed";
+    State[State["Hover"] = 1] = "Hover";
+    State[State["Default"] = 2] = "Default";
+})(State || (State = {}));
 class Radius {
     constructor(tl, tr = null, bl = null, br = null) {
         this.topLeft = tl;
@@ -32,28 +39,11 @@ class Radius {
 }
 class Page {
     constructor() {
-        this.elements = new Array;
+        this.controls = new Array;
     }
-    elementUp(element) { }
-    elementDown(element) { }
-    elementHover(element) { }
     hitTest(x, y, type) {
-        for (let i = this.elements.length - 1; i >= 0; i--) {
-            let element = this.elements[i];
-            if ((x > element.bounds[0]() && x < element.bounds[2]())
-                && (y > element.bounds[1]() && y < element.bounds[3]())) {
-                if (type == TestType.Hover) {
-                    element.onhover();
-                    this.elementHover(element);
-                }
-                else if (type == TestType.Up) {
-                    element.onmouseup();
-                    this.elementDown(element);
-                }
-                else if (type == TestType.Down) {
-                    element.onmousedown();
-                    this.elementUp(element);
-                }
+        for (let i = this.controls.length - 1; i >= 0; i--) {
+            if (this.controls[i].hitTest(x, y, type)) {
                 return true;
             }
         }
@@ -62,26 +52,58 @@ class Page {
     render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         render();
-        for (let element of this.elements) {
-            element.render();
+        for (let control of this.controls) {
+            control.render();
         }
     }
 }
-class RoundedRect {
-    constructor(id = "", colour, border, radius, x, y, width, height) {
-        this.id = id;
+class Control {
+    constructor() {
+        this.state = State.Default;
+        this.bounds = [];
+    }
+    onhover() { }
+    onleave() { }
+    onmousedown() { }
+    onmouseup() { }
+    hitTest(x, y, type) {
+        if (type == TestType.Up && this.state == State.Pressed) {
+            this.state = State.Default;
+            this.onmouseup();
+            return true;
+        }
+        else if ((x > this.bounds[0]() && x < this.bounds[2]())
+            && (y > this.bounds[1]() && y < this.bounds[3]())) {
+            if (type == TestType.Hover && this.state != State.Hover) {
+                this.state = State.Hover;
+                this.onhover();
+            }
+            else if (type == TestType.Down && this.state != State.Pressed) {
+                this.state = State.Pressed;
+                this.onmousedown();
+            }
+            return true;
+        }
+        else if (type == TestType.Hover && this.state == State.Hover) {
+            this.state = State.Default;
+            this.onleave();
+            return false;
+        }
+        return false;
+    }
+    render() { }
+}
+class RoundedRect extends Control {
+    constructor(colour, border, radius, x, y, width, height) {
+        super();
         this.colour = colour;
         this.border = border;
         this.radius = radius;
-        this.bounds = [];
         this.bounds[0] = x;
         this.bounds[1] = y;
         this.bounds[2] = () => x() + width();
         this.bounds[3] = () => y() + height();
     }
-    onhover() { }
-    onmousedown() { }
-    onmouseup() { }
     render() {
         ctx.save();
         ctx.strokeStyle = this.border;
@@ -102,13 +124,12 @@ class RoundedRect {
         ctx.restore();
     }
 }
-class Label {
-    constructor(id = "", text, x, y, fontSize = 64, colour = "black") {
-        this.id = id;
+class Label extends Control {
+    constructor(text, x, y, fontSize = 64, colour = "black") {
+        super();
         this.text = text;
         this.fontSize = fontSize;
         this.colour = colour;
-        this.bounds = [];
         this.bounds[0] = x;
         this.bounds[1] = y;
         this.bounds[2] = () => {
@@ -120,9 +141,6 @@ class Label {
         };
         this.bounds[3] = () => y() + this.fontSize;
     }
-    onhover() { }
-    onmousedown() { }
-    onmouseup() { }
     render() {
         ctx.save();
         ctx.fillStyle = this.colour;
@@ -131,9 +149,9 @@ class Label {
         ctx.restore();
     }
 }
-class Button {
-    constructor(id = "", text, x, y, width = () => 256, height = () => 64, fontSize = 32, normalColour = "lightgray", pressedColour = "darkgrey", hoverColour = "gainsboro") {
-        this.id = id;
+class Button extends Control {
+    constructor(text, x, y, width = () => 256, height = () => 64, fontSize = 32, normalColour = "lightgray", pressedColour = "darkgrey", hoverColour = "gainsboro") {
+        super();
         this.text = text;
         this.width = width;
         this.height = height;
@@ -141,27 +159,46 @@ class Button {
         this.normalColour = normalColour;
         this.pressedColour = pressedColour;
         this.hoverColour = hoverColour;
-        this.bounds = [];
-        this.hovering = false;
         this.colour = "";
         this.colour = this.normalColour;
         this.bounds[0] = x;
         this.bounds[1] = y;
         this.bounds[2] = () => x() + this.width();
         this.bounds[3] = () => y() + this.height();
-        this.background = new RoundedRect("", this.colour, "darkgray", new Radius(8), this.bounds[0], this.bounds[1], () => this.width(), () => this.height());
+        this.background = new RoundedRect(this.colour, "darkgray", new Radius(8), this.bounds[0], this.bounds[1], () => this.width(), () => this.height());
     }
-    onhover() {
-        this.background.colour = this.hoverColour;
-        this.render();
-    }
-    onmousedown() {
-        this.background.colour = this.pressedColour;
-        this.render();
-    }
-    onmouseup() {
-        this.background.colour = this.normalColour;
-        this.render();
+    hitTest(x, y, type) {
+        if (type == TestType.Up && this.state == State.Pressed) {
+            this.state = State.Default;
+            this.background.colour = this.normalColour;
+            this.render();
+            this.onmouseup();
+            return true;
+        }
+        else if ((x > this.bounds[0]() && x < this.bounds[2]())
+            && (y > this.bounds[1]() && y < this.bounds[3]())) {
+            if (type == TestType.Hover && this.state != State.Hover) {
+                this.state = State.Hover;
+                this.background.colour = this.hoverColour;
+                this.render();
+                this.onhover();
+            }
+            else if (type == TestType.Down && this.state != State.Pressed) {
+                this.state = State.Pressed;
+                this.background.colour = this.pressedColour;
+                this.render();
+                this.onmousedown();
+            }
+            return true;
+        }
+        else if (type == TestType.Hover && this.state == State.Hover) {
+            this.state = State.Default;
+            this.background.colour = this.normalColour;
+            this.render();
+            this.onleave();
+            return false;
+        }
+        return false;
     }
     render() {
         ctx.save();
@@ -177,26 +214,10 @@ class Button {
 class MainPage extends Page {
     constructor() {
         super();
-        this.elements = new Array;
-        this.elements.push(new RoundedRect("", "#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500));
-        this.elements.push(new Label("", "FlatWorld", () => innerWidth / 2 - 152, () => innerHeight / 2 - 164));
-        this.elements.push(new Button("playBtn", "Play", () => innerWidth / 2 - 128, () => innerHeight / 2 + 50));
-        this.elements.push(new Button("settingsBtn", "Settings", () => innerWidth / 2 - 128, () => innerHeight / 2 + 124));
-    }
-    elementUp(element) {
-        switch (element.id) {
-            case "playBtn":
-                console.log("Starting game");
-                currentPage = gamePage;
-                currentPage.render();
-                break;
-            case "settingsBtn":
-                break;
-        }
-    }
-    elementDown(element) {
-    }
-    elementHover(element) {
+        this.controls.push(new RoundedRect("#FFFFFF", "#808080", new Radius(8), () => innerWidth / 2 - Math.min(innerWidth - 16, 400) / 2, () => innerHeight / 2 - 250, () => Math.min(innerWidth - 16, 400), () => 500));
+        this.controls.push(new Label("FlatWorld", () => innerWidth / 2 - 152, () => innerHeight / 2 - 164));
+        this.controls.push(new Button("Play", () => innerWidth / 2 - 128, () => innerHeight / 2 + 50));
+        this.controls.push(new Button("Settings", () => innerWidth / 2 - 128, () => innerHeight / 2 + 124));
     }
     roundClip(x, y, width, height, radius) {
         ctx.beginPath();
@@ -229,7 +250,7 @@ class MainPage extends Page {
 class GamePage extends Page {
     constructor() {
         super();
-        this.elements.push(new RoundedRect("", "#FFFFFF", "#808080", new Radius(0, 8, 0, 0), () => 0, () => innerHeight - 100, () => Math.min(innerWidth - 16, 400), () => 100));
+        this.controls.push(new RoundedRect("#FFFFFF", "#808080", new Radius(0, 8, 0, 0), () => 0, () => innerHeight - 100, () => Math.min(innerWidth - 16, 400), () => 100));
     }
 }
 // We propogate the input from the UI (foreground) to background
