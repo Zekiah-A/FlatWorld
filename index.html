@@ -119,13 +119,7 @@ class Label {
             ctx.restore();
             return wx;
         }
-        this.bounds[3] = () => {
-            ctx.save();
-            ctx.font = this.fontSize + "px serif";
-            let hy = x() + ctx.measureText(this.text).height;
-            ctx.restore();
-            return hy;
-        }
+        this.bounds[3] = () => y() + this.fontSize
     }
     onhover() { }
     onmousedown() { }
@@ -269,7 +263,7 @@ canvas.addEventListener("mousedown", (event) => hitTest(event, TestType.Down));
 canvas.addEventListener("touchstart", (event) => hitTest(event, TestType.Down));
 canvas.addEventListener("mousemove", (event) => hitTest(event, TestType.Hover));
 canvas.addEventListener("touchmove", (event) => hitTest(event, TestType.Hover));
-canvas.addEventListener("mouseup", (event) => hitTest(event, TestType.Down));
+canvas.addEventListener("mouseup", (event) => hitTest(event, TestType.Up));
 canvas.addEventListener("touchend", (event) => hitTest(event, TestType.Up));
 </script>
 </html>

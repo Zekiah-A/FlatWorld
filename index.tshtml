@@ -148,13 +148,7 @@
                 ctx.restore()
                 return wx
             }
-            this.bounds[3] = () => {
-                ctx.save()
-                ctx.font = this.fontSize + "px serif"
-                let hy = x() + ctx.measureText(this.text).height
-                ctx.restore()
-                return hy
-            }
+            this.bounds[3] = () => y() + this.fontSize
         }
 
         onhover() {}
@@ -274,6 +268,7 @@
         }
     }
 
+    // We propogate the input from the UI (foreground) to background
     function hitTest(event: any, type: TestType) {
         if (!currentPage.hitTest(event.clientX || event.touches[0].clientX,
             event.clientY || event.touches[0].clientY, type)) {
@@ -316,9 +311,6 @@
     resizeCanvas()
     currentPage.render()
 
-    // We propogate the click from the UI (foreground) to background
-
-
     this.addEventListener("resize", () => {
         resizeCanvas()
         currentPage.render()
@@ -328,7 +320,7 @@
     canvas.addEventListener("touchstart", (event) => hitTest(event, TestType.Down))
     canvas.addEventListener("mousemove", (event) => hitTest(event, TestType.Hover))
     canvas.addEventListener("touchmove", (event) => hitTest(event, TestType.Hover))
-    canvas.addEventListener("mouseup", (event) => hitTest(event, TestType.Down))
+    canvas.addEventListener("mouseup", (event) => hitTest(event, TestType.Up))
     canvas.addEventListener("touchend", (event) => hitTest(event, TestType.Up))
 </script>
 </html>
