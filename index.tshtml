@@ -2,6 +2,7 @@
 <html>
 <head>
     <link rel="stylesheet" href="./styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1 user-scalable=no" />
 </head>
 <body>
     <canvas id="canvas" style="background-color: lightgray;"></canvas>
@@ -38,6 +39,17 @@
         Brick,
         Water
     }
+
+    /*
+    COLOURS:
+    "#4f4cb0"
+    "#6b93d6"
+    "#e9eff9"
+    "#9fc164"
+    "#FAFFAF"
+    "#d8c596"
+    "#665A48"
+    */
 
     interface IControl {
         bounds: Array<Function>
@@ -321,9 +333,7 @@
     }
 
     class GamePage extends Page {
-        placeIcon: HTMLImageElement
-        digIcon: HTMLImageElement
-        inventoryIcon: HTMLImageElement
+        icons: Array<HTMLImageElement> = []
 
         constructor() {
             super()
@@ -359,23 +369,33 @@
                 currentPage.render()
             }
             this.controls.push(inventoryIndicator)
+            let settingsIndicator = new RoundedRect("transparent", "transparent", new Radius(0), () => 300, () => innerHeight - 100, () => 100, () => 100);
+            settingsIndicator.onhover = function () {
+                settingsIndicator.colour = "lightgray"
+                currentPage.render()
+            }
+            settingsIndicator.onleave = function () {
+                settingsIndicator.colour = "transparent"
+                currentPage.render()
+            }
+            this.controls.push(settingsIndicator)
 
-            this.placeIcon = new Image()
-            this.placeIcon.src = "place.png"
-            this.placeIcon.addEventListener("load", () => this.render())
-            this.digIcon = new Image()
-            this.digIcon.src = "dig.png"
-            this.digIcon.addEventListener("load", () => this.render())
-            this.inventoryIcon = new Image()
-            this.inventoryIcon.src = "inventory.png"
-            this.inventoryIcon.addEventListener("load", () => this.render())
+            let iconPaths = ["place.png", "dig.png", "inventory.png", "settings.png"]
+            for (let i = 0; i < iconPaths.length; i++) {
+                
+                let icon = new Image()
+                icon.src = iconPaths[i]
+                icon.addEventListener("load", () => this.render())
+                this.icons.push(icon)
+            }
         }
 
         render() {
             super.render()
-            ctx.drawImage(this.placeIcon, 5, innerHeight - 95, 90, 90)
-            ctx.drawImage(this.digIcon, 105, innerHeight - 95, 90, 90)
-            ctx.drawImage(this.inventoryIcon, 205, innerHeight - 95, 90, 90)
+
+            for (let i = 0; i < this.icons.length; i++) {
+                ctx.drawImage(this.icons[i], (100 * i) + 5, innerHeight - 95, 90, 90)
+            }
         }
     }
 
@@ -388,7 +408,14 @@
         }
     }
 
-   let chunks = new Uint8Array([21, 31])
+    let chunks = new Map()
+
+    // TEST: Create a few chunks
+    for (let x = 0; x < 10; x++) {
+        for (let y = 0; y < 10; y++) {
+            chunks.set(x.toString() + y.toString(), new Uint8Array(65536))
+        }
+    }
 
     function render(): void {
         ctx.save()
